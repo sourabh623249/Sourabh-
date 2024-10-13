@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session Time Calculator</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: auto;
+            background-color: #fff;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        textarea {
+            width: 100%;
+            height: 300px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            resize: vertical;
+            font-family: monospace;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .results {
+            margin-top: 30px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        table thead {
+            background-color: #007bff;
+            color: white;
+        }
+        table th, table td {
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #ddd;
+        }
+        table tbody tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .total-time {
+            font-size: 1.4em;
+            text-align: right;
+            margin-top: 10px;
+            color: #333;
+        }
+        .copy-button {
+            background-color: #28a745;
+            margin-top: 10px;
+        }
+        .copy-button:hover {
+            background-color: #218838;
+        }
+        @media (max-width: 600px) {
+            table th, table td {
+                padding: 8px;
+            }
+            .total-time {
+                font-size: 1.2em;
+            }
+            button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Session Time Calculator</h1>
+    <p class="created-by">Created by Sourabh</p>
+        
+    
+    <textarea id="sessionInput" placeholder="Paste your session data here...">
+    </textarea>
+    
+    <button onclick="calculateTime()">Calculate Time</button>
+    <button class="copy-button" onclick="copyResults()">Copy Results</button>
+    
+    <div class="results" id="results" style="display:none;">
+        <table id="resultsTable">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Name</th>
+                    <th>Start Time</th>
+                    <th>Stop Time</th>
+                    <th>Duration</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Calculated results will appear here -->
+            </tbody>
+        </table>
+        
+        <div class="total-time" id="totalTime">Total Time: 0 hours, 0 minutes, and 0 seconds</div>
+    </div>
+</div>
+
+<script>
+    function calculateTime() {
+        const input = document.getElementById('sessionInput').value;
+        const sessions = parseSessions(input);
+        const results = calculateDurations(sessions);
+        displayResults(results);
+    }
+
+    function parseSessions(input) {
+        // Split the input into blocks separated by blank lines
+        const blocks = input.split(/\n\s*\n/);
+        const sessions = [];
+
+        blocks.forEach(block => {
+            const lines = block.split('\n');
+            let name = '';
+            let startTime = '';
+            let stopTime = '';
+
+            lines.forEach(line => {
+                const nameMatch = line.match(/Name:\s*(.*)/i);
+                const startMatch = line.match(/Start Time:\s*(.*)/i);
+                const stopMatch = line.match(/Stop Time:\s*(.*)/i);
+
+                if (nameMatch) {
+                    name = nameMatch[1].trim();
+                }
+                if (startMatch) {
+                    startTime = startMatch[1].trim();
+                }
+                if (stopMatch) {
+                    stopTime = stopMatch[1].trim();
+                }
+            });
+
+            if (name && startTime && stopTime) {
+                sessions.push({ name, startTime, stopTime });
+            }
+        });
+
+        return sessions;
+    }
+
+    function calculateDurations(sessions) {
+        let totalHours = 0;
+        let totalMinutes = 0;
+        let totalSeconds = 0;
+        const results = [];
+
+        sessions.forEach((session, index) => {
+            const start = parseDate(session.startTime);
+            const stop = parseDate(session.stopTime);
+            const duration = calculateDuration(start, stop);
+
+            // Accumulate total time
+            totalHours += duration.hours;
+            totalMinutes += duration.minutes;
+            totalSeconds += duration.seconds;
+
+            // Handle seconds overflow
+            if (totalSeconds >= 60) {
+                totalMinutes += Math.floor(totalSeconds / 60);
+                totalSeconds = totalSeconds % 60;
+            }
+
+            // Handle minutes overflow
+            if (totalMinutes >= 60) {
+                totalHours += Math.floor(totalMinutes / 60);
+                totalMinutes = totalMinutes % 60;
+            }
+
+            results.push({
+                index: index + 1,
+                name: session.name,
+                startTime: formatDisplayDate(start),
+                stopTime: formatDisplayDate(stop),
+                duration: `${duration.hours}h ${duration.minutes}m ${duration.seconds}s`
+            });
+        });
+
+        return {
+            sessions: results,
+            total: {
+                hours: totalHours,
+                minutes: totalMinutes,
+                seconds: totalSeconds
+            }
+        };
+    }
+
+    function parseDate(dateStr) {
+        // Replace comma and space to make it compatible with Date constructor
+        const cleanedStr = dateStr.replace(',', '');
+        return new Date(cleanedStr);
+    }
+
+    function calculateDuration(start, stop) {
+        const diffInMs = stop - start;
+        const totalSeconds = Math.floor(diffInMs / 1000);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        return { hours, minutes, seconds };
+    }
+
+    function formatDisplayDate(date) {
+        const options = { 
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit',
+            hour12: true 
+        };
+        return date.toLocaleString(undefined, options);
+    }
+
+    function displayResults(results) {
+        const tbody = document.querySelector('#resultsTable tbody');
+        tbody.innerHTML = ''; // Clear existing rows
+
+        results.sessions.forEach(session => {
+            const tr = document.createElement('tr');
+
+            const snTd = document.createElement('td');
+            snTd.textContent = session.index;
+            tr.appendChild(snTd);
+
+            const nameTd = document.createElement('td');
+            nameTd.textContent = session.name;
+            tr.appendChild(nameTd);
+
+            const startTd = document.createElement('td');
+            startTd.textContent = session.startTime;
+            tr.appendChild(startTd);
+
+            const stopTd = document.createElement('td');
+            stopTd.textContent = session.stopTime;
+            tr.appendChild(stopTd);
+
+            const durationTd = document.createElement('td');
+            durationTd.textContent = session.duration;
+            tr.appendChild(durationTd);
+
+            tbody.appendChild(tr);
+        });
+
+        // Display Total Time
+        document.getElementById('totalTime').textContent = `Total Time: ${results.total.hours} hours, ${results.total.minutes} minutes, and ${results.total.seconds} seconds`;
+
+        // Show the results section
+        document.getElementById('results').style.display = 'block';
+    }
+
+    function copyResults() {
+        const resultsTable = document.getElementById('resultsTable').outerHTML;
+        const totalTime = document.getElementById('totalTime').innerText;
+        const combinedText = resultsTable + '\n' + totalTime;
+
+        // Create a temporary textarea to copy the text
+        const tempTextarea = document.createElement('textarea');
+        tempTextarea.value = combinedText;
+        document.body.appendChild(tempTextarea);
+        tempTextarea.select();
+        tempTextarea.setSelectionRange(0, 99999); // For mobile devices
+
+        try {
+            document.execCommand('copy');
+            alert('Results copied to clipboard!');
+        } catch (err) {
+            alert('Failed to copy results.');
+        }
+
+        document.body.removeChild(tempTextarea);
+    }
+</script>
+
+</body>
+</html>
